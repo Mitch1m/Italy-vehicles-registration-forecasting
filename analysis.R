@@ -44,4 +44,5 @@ ppred <- exp(rawpred + data$log[387])
 # Final plot
 plot(1:398, data$Registrations, type = "l", xlim = c(1, 399), 
      main="Actual Data and One-Step-Ahead Forecast", ylab="Car Registrations")
+
 points(399, ppred, col = 2, pch = 19)
