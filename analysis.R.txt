@@ -1,0 +1,47 @@
+# Load data from the working directory
+data <- read.csv("dataset.txt", sep = "", header = FALSE)
+
+# Rename the column for clarity
+colnames(data)[2] <- "Registrations"
+
+# Log transformation to stabilize variance
+data$log <- log(data$Registrations)
+
+# Seasonal differencing (Lag 12 for monthly data)
+data$difflog <- c(rep(NA, 12), diff(data$log, 12))
+
+# Dummy variable for the COVID period
+data$covid <- c(rep(0, 362), rep(1, 24), rep(0, 12))
+
+# ACF analysis on differenced series (excluding Covid period)
+acf(na.omit(data$difflog[data$covid == 0]), main="ACF of Differenced Series (Pre-Covid)")
+
+# ARIMA Model (1,0,2) with Seasonal Component (0,0,4)
+arima1 <- arima(na.omit(data$difflog[data$covid == 0]),
+                order = c(1L, 0L, 2L),
+                seasonal = list(order = c(0L, 0L, 4L), period = 3)
+)
+summary(arima1)
+
+# Residual analysis
+acf(arima1$residuals, main="ACF of Residuals")
+mean(arima1$residuals^2)
+
+# In-sample prediction and plot
+pred <- c(
+  na.omit(data$difflog[data$covid == 0]) - arima1$residuals,
+  predict(arima1, n.ahead = 12)$pred
+)
+
+plot(1:362, na.omit(data$difflog[data$covid == 0]), type = "l", xlim = c(1, 374), 
+     main="In-sample prediction", ylab="Diff Log Registrations")
+lines(pred, col = 2)
+
+# Final forecast (reverting to original scale)
+rawpred <- predict(arima1)$pred
+ppred <- exp(rawpred + data$log[387]) 
+
+# Final plot
+plot(1:398, data$Registrations, type = "l", xlim = c(1, 399), 
+     main="Actual Data and One-Step-Ahead Forecast", ylab="Car Registrations")
+points(399, ppred, col = 2, pch = 19)
